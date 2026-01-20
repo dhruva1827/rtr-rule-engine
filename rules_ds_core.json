@@ -1,0 +1,46 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug substance manufacturer name and address are clearly identified",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug substance manufacturing process is described or referenced",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug Master File (DMF) number is provided, if applicable",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Letter of Authorization (LOA) from DMF holder is included, if DMF is referenced",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug substance specifications are provided",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Analytical methods for drug substance are described or referenced",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug substance stability data or stability commitment is provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    }
+  ]
+}
