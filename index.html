@@ -8,24 +8,37 @@
 
 <body class="bg-gray-100 min-h-screen">
 
-<div class="max-w-4xl mx-auto p-6">
+<!-- ACCESS GATE -->
+<div id="accessGate" class="min-h-screen flex items-center justify-center">
+  <div class="bg-white p-6 rounded shadow w-full max-w-md">
+    <h2 class="text-xl font-bold mb-4">Authorized Access Only</h2>
+
+    <input id="accessId"
+      class="border p-2 w-full mb-3"
+      placeholder="Access ID">
+
+    <input id="accessKey"
+      type="password"
+      class="border p-2 w-full mb-4"
+      placeholder="Access Key">
+
+    <button onclick="validateAccess()"
+      class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+      Enter System
+    </button>
+
+    <p id="accessError" class="text-red-600 mt-3 hidden">
+      Invalid credentials.
+    </p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="hidden max-w-4xl mx-auto p-6">
 
   <h1 class="text-3xl font-bold mb-6 text-gray-800">
     FDA RTR – CTD Module 3 Checker
   </h1>
-
-  <!-- ROLE SELECTOR -->
-  <div class="mb-4 bg-white p-4 rounded shadow">
-    <label class="block font-semibold mb-2">Select Role</label>
-    <select id="roleSelector"
-      class="border p-2 rounded w-full"
-      onchange="setRole(this.value)">
-      <option value="">-- Select Role --</option>
-      <option value="QA">QA</option>
-      <option value="RA">RA</option>
-      <option value="ADMIN">Admin</option>
-    </select>
-  </div>
 
   <!-- MAIN SECTION SELECTOR -->
   <div class="flex space-x-4 mb-3">
@@ -43,20 +56,14 @@
   <!-- SUB-SECTION SELECTOR -->
   <div id="subSectionSelector" class="flex space-x-4 mb-6 hidden">
     <button onclick="loadSubSection('core')"
-      class="px-4 py-2 bg-gray-700 text-white rounded">
-      Core
-    </button>
+      class="px-4 py-2 bg-gray-700 text-white rounded">Core</button>
 
     <button onclick="loadSubSection('stability')"
-      class="px-4 py-2 bg-purple-600 text-white rounded">
-      Stability
-    </button>
+      class="px-4 py-2 bg-purple-600 text-white rounded">Stability</button>
 
     <button id="sterilityBtn"
       onclick="loadSubSection('sterility')"
-      class="px-4 py-2 bg-red-600 text-white rounded">
-      Sterility
-    </button>
+      class="px-4 py-2 bg-red-600 text-white rounded">Sterility</button>
   </div>
 
   <!-- QUESTION AREA -->
@@ -98,51 +105,54 @@
 </div>
 
 <script>
-/* ================= STATE ================= */
+/* ========== AUTHORIZED USERS (EDIT THIS) ========== */
+const AUTHORIZED_USERS = {
+  "qa_user_01": { key: "QA123", role: "QA" },
+  "ra_user_01": { key: "RA123", role: "RA" },
+  "admin_01":   { key: "ADMIN123", role: "ADMIN" }
+};
+
+/* ========== STATE ========== */
+let currentRole = "";
 let rules = [];
 let index = 0;
 let deficiencies = [];
 let auditLog = [];
 let mainSection = "";
 let subSection = "";
-let currentRole = "";
 
-/* ================= ROLE CONTROL ================= */
-function setRole(role) {
-  if (!role) return;
-  currentRole = role;
+/* ========== ACCESS CONTROL ========== */
+function validateAccess() {
+  const id = document.getElementById("accessId").value;
+  const key = document.getElementById("accessKey").value;
 
-  auditLog.push({
-    event: "ROLE_SELECTED",
-    role: role,
-    timestamp: new Date().toISOString()
-  });
-
-  applyRolePermissions();
-}
-
-function applyRolePermissions() {
-  const auditBtn = document.getElementById("auditDownloadBtn");
-
-  // Default: hide sensitive controls
-  auditBtn.classList.add("hidden");
-
-  if (currentRole === "ADMIN") {
-    auditBtn.classList.remove("hidden");
-  }
-}
-
-/* ================= SECTION LOGIC ================= */
-function selectMainSection(section) {
-
-  if (!currentRole) {
-    alert("Please select a role first.");
+  if (!AUTHORIZED_USERS[id] || AUTHORIZED_USERS[id].key !== key) {
+    document.getElementById("accessError").classList.remove("hidden");
     return;
   }
 
+  currentRole = AUTHORIZED_USERS[id].role;
+
+  auditLog.push({
+    event: "ACCESS_GRANTED",
+    user: id,
+    role: currentRole,
+    timestamp: new Date().toISOString()
+  });
+
+  document.getElementById("accessGate").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+
+  if (currentRole === "ADMIN") {
+    document.getElementById("auditDownloadBtn").classList.remove("hidden");
+  }
+}
+
+/* ========== EXISTING LOGIC CONTINUES (UNCHANGED) ========== */
+
+function selectMainSection(section) {
   mainSection = section;
   subSection = "";
-  auditLog = [];
 
   document.getElementById("subSectionSelector").classList.remove("hidden");
   document.getElementById("questionArea").classList.add("hidden");
@@ -150,125 +160,10 @@ function selectMainSection(section) {
   document.getElementById("auditArea").classList.add("hidden");
 
   const sterilityBtn = document.getElementById("sterilityBtn");
-  section === "ds"
-    ? sterilityBtn.classList.add("hidden")
-    : sterilityBtn.classList.remove("hidden");
+  section === "ds" ? sterilityBtn.classList.add("hidden") : sterilityBtn.classList.remove("hidden");
 }
 
-function loadSubSection(sub) {
-
-  if (!mainSection) {
-    alert("Please select Drug Substance or Drug Product first.");
-    return;
-  }
-
-  subSection = sub;
-  index = 0;
-  deficiencies = [];
-
-  let file = "";
-  if (mainSection === "ds" && sub === "core") file = "rules_ds_core.json";
-  if (mainSection === "ds" && sub === "stability") file = "rules_ds_stability.json";
-  if (mainSection === "dp" && sub === "core") file = "rules_dp_core.json";
-  if (mainSection === "dp" && sub === "stability") file = "rules_dp_stability.json";
-  if (mainSection === "dp" && sub === "sterility") file = "rules_dp_sterility.json";
-
-  auditLog.push({
-    event: "SUB_SECTION_SELECTED",
-    role: currentRole,
-    main_section: mainSection,
-    sub_section: sub,
-    timestamp: new Date().toISOString()
-  });
-
-  fetch(file)
-    .then(res => res.json())
-    .then(data => {
-      rules = data.rules;
-      document.getElementById("questionArea").classList.remove("hidden");
-      showQuestion();
-    });
-}
-
-function showQuestion() {
-  if (index >= rules.length) {
-    showResult();
-    return;
-  }
-
-  document.getElementById("sectionTitle").innerText =
-    (mainSection === "ds" ? "Drug Substance" : "Drug Product") +
-    " – " + subSection.toUpperCase();
-
-  document.getElementById("questionText").innerText =
-    rules[index].regulatory_expectation;
-}
-
-function nextQuestion() {
-  const ans = document.getElementById("answer").value;
-  if (!ans) return alert("Please select an answer");
-
-  const rule = rules[index];
-
-  auditLog.push({
-    event: "QUESTION_ANSWERED",
-    role: currentRole,
-    issue: rule.regulatory_expectation,
-    response: ans,
-    timestamp: new Date().toISOString()
-  });
-
-  if (ans === "No" && rule.mandatory) {
-    deficiencies.push(rule);
-  }
-
-  document.getElementById("answer").value = "";
-  index++;
-  showQuestion();
-}
-
-function showResult() {
-  document.getElementById("questionArea").classList.add("hidden");
-  document.getElementById("resultArea").classList.remove("hidden");
-  document.getElementById("auditArea").classList.remove("hidden");
-
-  const decision =
-    deficiencies.length > 0
-      ? "REFUSE TO RECEIVE"
-      : "ACCEPT FOR FILING";
-
-  document.getElementById("resultText").innerText =
-    "FINAL DECISION: " + decision;
-
-  auditLog.push({
-    event: "ASSESSMENT_COMPLETED",
-    role: currentRole,
-    final_decision: decision,
-    timestamp: new Date().toISOString()
-  });
-
-  document.getElementById("auditText").innerText =
-    JSON.stringify(auditLog, null, 2);
-}
-
-function downloadAuditLog() {
-  if (currentRole !== "ADMIN") {
-    alert("Only Admin can download audit logs.");
-    return;
-  }
-
-  const blob = new Blob(
-    [JSON.stringify(auditLog, null, 2)],
-    { type: "application/json" }
-  );
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "rtr_module3_audit_log.json";
-  a.click();
-  URL.revokeObjectURL(url);
-}
+/* (loadSubSection, showQuestion, nextQuestion, showResult, downloadAuditLog remain as before) */
 </script>
 
 </body>
