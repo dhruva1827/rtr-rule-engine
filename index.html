@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>FDA RTR – Module 3</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
@@ -16,32 +17,19 @@
 
   <!-- MAIN SECTION SELECTOR -->
   <div class="flex space-x-4 mb-3">
-    <button onclick="selectMainSection('ds')"
-      class="px-4 py-2 bg-blue-600 text-white rounded">
+    <button onclick="selectMainSection('ds')" class="px-4 py-2 bg-blue-600 text-white rounded">
       Drug Substance
     </button>
-
-    <button onclick="selectMainSection('dp')"
-      class="px-4 py-2 bg-green-600 text-white rounded">
+    <button onclick="selectMainSection('dp')" class="px-4 py-2 bg-green-600 text-white rounded">
       Drug Product
     </button>
   </div>
 
   <!-- SUB-SECTION SELECTOR -->
   <div id="subSectionSelector" class="flex space-x-4 mb-6 hidden">
-    <button onclick="loadSubSection('core')"
-      class="px-4 py-2 bg-gray-700 text-white rounded">
-      Core
-    </button>
-
-    <button onclick="loadSubSection('stability')"
-      class="px-4 py-2 bg-purple-600 text-white rounded">
-      Stability
-    </button>
-
-    <button id="sterilityBtn"
-      onclick="loadSubSection('sterility')"
-      class="px-4 py-2 bg-red-600 text-white rounded">
+    <button onclick="loadSubSection('core')" class="px-4 py-2 bg-gray-700 text-white rounded">Core</button>
+    <button onclick="loadSubSection('stability')" class="px-4 py-2 bg-purple-600 text-white rounded">Stability</button>
+    <button id="sterilityBtn" onclick="loadSubSection('sterility')" class="px-4 py-2 bg-red-600 text-white rounded">
       Sterility
     </button>
   </div>
@@ -58,8 +46,7 @@
       <option value="NA">Not Applicable</option>
     </select>
 
-    <button onclick="nextQuestion()"
-      class="bg-black text-white px-4 py-2 rounded">
+    <button onclick="nextQuestion()" class="bg-black text-white px-4 py-2 rounded">
       Next
     </button>
   </div>
@@ -68,22 +55,33 @@
   <div id="resultArea" class="mt-6 bg-white p-6 rounded shadow hidden">
     <h2 class="text-xl font-semibold mb-2">Result</h2>
     <pre id="resultText" class="text-red-600"></pre>
+
+    <button onclick="exportPDF()" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded">
+      Export RTR Report (PDF)
+    </button>
+  </div>
+
+  <!-- AI EXPLANATION -->
+  <div id="aiArea" class="mt-6 bg-white p-6 rounded shadow hidden">
+    <h2 class="text-xl font-semibold mb-2">AI Regulatory Explanation</h2>
+    <p class="text-sm text-gray-500 mb-2">Explanatory only. Does not influence decision.</p>
+    <pre id="aiText" class="whitespace-pre-wrap text-gray-800"></pre>
   </div>
 
   <!-- AUDIT LOG -->
   <div id="auditArea" class="mt-6 bg-white p-6 rounded shadow hidden">
     <h2 class="text-xl font-semibold mb-2">Audit Log (ALCOA+)</h2>
     <pre id="auditText" class="text-sm text-gray-700"></pre>
-
-    <button onclick="downloadAuditLog()"
-      class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
-      Download Audit Log
-    </button>
   </div>
 
 </div>
 
 <script>
+/* ================= CONFIG ================= */
+const OPENROUTER_API_KEY = "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"; 
+const AI_MODEL = "xiaomi/mimo-v2-flash:free";
+
+/* ================= STATE ================= */
 let rules = [];
 let index = 0;
 let deficiencies = [];
@@ -91,7 +89,7 @@ let auditLog = [];
 let mainSection = "";
 let subSection = "";
 
-/* ---------- SELECT MAIN SECTION ---------- */
+/* ================= SECTION LOGIC ================= */
 function selectMainSection(section) {
   mainSection = section;
   subSection = "";
@@ -101,147 +99,94 @@ function selectMainSection(section) {
   document.getElementById("questionArea").classList.add("hidden");
   document.getElementById("resultArea").classList.add("hidden");
   document.getElementById("auditArea").classList.add("hidden");
+  document.getElementById("aiArea").classList.add("hidden");
 
-  // FDA-correct logic: Sterility only for Drug Product
   const sterilityBtn = document.getElementById("sterilityBtn");
-  if (section === "ds") {
-    sterilityBtn.classList.add("hidden");
-  } else {
-    sterilityBtn.classList.remove("hidden");
-  }
+  section === "ds" ? sterilityBtn.classList.add("hidden") : sterilityBtn.classList.remove("hidden");
 }
 
-/* ---------- LOAD SUB-SECTION ---------- */
 function loadSubSection(sub) {
-
-  if (!mainSection) {
-    alert("Please select Drug Substance or Drug Product first.");
-    return;
-  }
-
   subSection = sub;
   index = 0;
   deficiencies = [];
 
   let file = "";
-
   if (mainSection === "ds" && sub === "core") file = "rules_ds_core.json";
   if (mainSection === "ds" && sub === "stability") file = "rules_ds_stability.json";
   if (mainSection === "dp" && sub === "core") file = "rules_dp_core.json";
   if (mainSection === "dp" && sub === "stability") file = "rules_dp_stability.json";
   if (mainSection === "dp" && sub === "sterility") file = "rules_dp_sterility.json";
 
-  auditLog.push({
-    event: "SUB_SECTION_SELECTED",
-    main_section: mainSection === "ds" ? "Drug Substance" : "Drug Product",
-    sub_section: sub,
-    timestamp: new Date().toISOString()
+  fetch(file).then(r => r.json()).then(d => {
+    rules = d.rules;
+    document.getElementById("questionArea").classList.remove("hidden");
+    showQuestion();
   });
-
-  fetch(file)
-    .then(res => res.json())
-    .then(data => {
-      rules = data.rules;
-      document.getElementById("questionArea").classList.remove("hidden");
-      showQuestion();
-    });
 }
 
-/* ---------- SHOW QUESTION ---------- */
 function showQuestion() {
-  if (index >= rules.length) {
-    showResult();
-    return;
-  }
-
-  const rule = rules[index];
-
+  if (index >= rules.length) return showResult();
   document.getElementById("sectionTitle").innerText =
-    (mainSection === "ds" ? "Drug Substance" : "Drug Product") +
-    " – " + subSection.toUpperCase();
-
-  document.getElementById("questionText").innerText =
-    rule.regulatory_expectation;
+    (mainSection === "ds" ? "Drug Substance" : "Drug Product") + " – " + subSection.toUpperCase();
+  document.getElementById("questionText").innerText = rules[index].regulatory_expectation;
 }
 
-/* ---------- NEXT QUESTION ---------- */
 function nextQuestion() {
   const ans = document.getElementById("answer").value;
-  if (!ans) {
-    alert("Please select an answer");
-    return;
-  }
-
   const rule = rules[index];
 
-  auditLog.push({
-    event: "QUESTION_ANSWERED",
-    section: rule.ctd_section,
-    requirement: rule.regulatory_expectation,
-    response: ans,
-    timestamp: new Date().toISOString()
-  });
+  auditLog.push({ event: "QUESTION_ANSWERED", issue: rule.regulatory_expectation, response: ans, ts: new Date().toISOString() });
 
-  if (ans === "No" && rule.mandatory) {
-    deficiencies.push({
-      section: rule.ctd_section,
-      issue: rule.regulatory_expectation,
-      severity: rule.severity_if_missing
-    });
-  }
-
-  document.getElementById("answer").value = "";
+  if (ans === "No" && rule.mandatory) deficiencies.push(rule);
   index++;
+  document.getElementById("answer").value = "";
   showQuestion();
 }
 
-/* ---------- SHOW RESULT ---------- */
-function showResult() {
+/* ================= RESULT + AI ================= */
+async function showResult() {
   document.getElementById("questionArea").classList.add("hidden");
   document.getElementById("resultArea").classList.remove("hidden");
   document.getElementById("auditArea").classList.remove("hidden");
 
-  let text = "";
-  let finalDecision = "ACCEPT FOR FILING";
+  const decision = deficiencies.length ? "REFUSE TO RECEIVE" : "ACCEPT FOR FILING";
+  document.getElementById("resultText").innerText = "FINAL DECISION: " + decision;
 
-  if (deficiencies.length > 0) {
-    deficiencies.forEach(d => {
-      text +=
-        "Section: " + d.section + "\n" +
-        "Issue: " + d.issue + "\n" +
-        "Severity: " + d.severity + "\n\n";
-    });
-    finalDecision = "REFUSE TO RECEIVE";
-  } else {
-    text = "No RTR-triggering deficiencies identified.\n\n";
-  }
+  auditLog.push({ event: "ASSESSMENT_COMPLETED", decision, ts: new Date().toISOString() });
+  document.getElementById("auditText").innerText = JSON.stringify(auditLog, null, 2);
 
-  text += "FINAL DECISION: " + finalDecision;
-  document.getElementById("resultText").innerText = text;
-
-  auditLog.push({
-    event: "ASSESSMENT_COMPLETED",
-    final_decision: finalDecision,
-    timestamp: new Date().toISOString()
-  });
-
-  document.getElementById("auditText").innerText =
-    JSON.stringify(auditLog, null, 2);
+  if (deficiencies.length) generateAIExplanation();
 }
 
-/* ---------- DOWNLOAD AUDIT LOG ---------- */
-function downloadAuditLog() {
-  const blob = new Blob(
-    [JSON.stringify(auditLog, null, 2)],
-    { type: "application/json" }
-  );
+async function generateAIExplanation() {
+  const prompt = `Explain why the following CTD Module 3 deficiencies may trigger FDA RTR:\n` +
+    deficiencies.map(d => `- ${d.regulatory_expectation}`).join("\n");
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "rtr_module3_audit_log.json";
-  a.click();
-  URL.revokeObjectURL(url);
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + OPENROUTER_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2
+    })
+  });
+
+  const data = await res.json();
+  document.getElementById("aiText").innerText = data.choices[0].message.content;
+  document.getElementById("aiArea").classList.remove("hidden");
+}
+
+/* ================= PDF EXPORT ================= */
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  doc.text("FDA RTR – Module 3 Report", 10, 10);
+  doc.text(document.getElementById("resultText").innerText, 10, 20);
+  doc.save("RTR_Report.pdf");
 }
 </script>
 
