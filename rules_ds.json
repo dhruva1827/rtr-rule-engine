@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Drug Substance",
+      "regulatory_expectation": "Drug substance manufacturer identified",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    }
+  ]
+}
