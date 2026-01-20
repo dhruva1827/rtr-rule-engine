@@ -1,0 +1,28 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Sterility",
+      "regulatory_expectation": "Sterilization method is clearly described",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Sterility",
+      "regulatory_expectation": "Sterility assurance level (SAL) is defined",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Sterility",
+      "regulatory_expectation": "Filter integrity testing is described (if applicable)",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Sterility",
+      "regulatory_expectation": "Media fill / aseptic process simulation strategy is described",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    }
+  ]
+}
