@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Manufacturing process description provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    }
+  ]
+}
