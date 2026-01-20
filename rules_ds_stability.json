@@ -1,0 +1,16 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Stability",
+      "regulatory_expectation": "Drug substance stability protocol is provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Stability",
+      "regulatory_expectation": "Retest period or expiry period is justified",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    }
+  ]
+}
