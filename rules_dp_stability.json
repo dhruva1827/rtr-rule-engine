@@ -1,0 +1,22 @@
+{
+  "rules": [
+    {
+      "ctd_section": "Stability",
+      "regulatory_expectation": "Drug product stability protocol is provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Stability",
+      "regulatory_expectation": "Stability testing conditions comply with ICH requirements",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Stability",
+      "regulatory_expectation": "Proposed shelf life is supported by stability data",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    }
+  ]
+}
