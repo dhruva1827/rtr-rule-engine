@@ -1,8 +1,44 @@
 {
   "rules": [
     {
-      "ctd_section": "Drug Substance",
-      "regulatory_expectation": "Drug substance manufacturer identified",
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Complete drug product formulation is provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Manufacturing process description for drug product is provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Batch formula for drug product is provided",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "In-process controls for drug product manufacturing are described",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Drug product specifications are provided",
+      "mandatory": true,
+      "severity_if_missing": "Critical"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Container closure system is described",
+      "mandatory": true,
+      "severity_if_missing": "Major"
+    },
+    {
+      "ctd_section": "Drug Product",
+      "regulatory_expectation": "Drug product stability protocol or commitment is provided",
       "mandatory": true,
       "severity_if_missing": "Critical"
     }
