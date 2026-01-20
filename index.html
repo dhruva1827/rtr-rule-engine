@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>FDA RTR – Module 3</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
@@ -15,21 +14,47 @@
     FDA RTR – CTD Module 3 Checker
   </h1>
 
+  <!-- ROLE SELECTOR -->
+  <div class="mb-4 bg-white p-4 rounded shadow">
+    <label class="block font-semibold mb-2">Select Role</label>
+    <select id="roleSelector"
+      class="border p-2 rounded w-full"
+      onchange="setRole(this.value)">
+      <option value="">-- Select Role --</option>
+      <option value="QA">QA</option>
+      <option value="RA">RA</option>
+      <option value="ADMIN">Admin</option>
+    </select>
+  </div>
+
   <!-- MAIN SECTION SELECTOR -->
   <div class="flex space-x-4 mb-3">
-    <button onclick="selectMainSection('ds')" class="px-4 py-2 bg-blue-600 text-white rounded">
+    <button onclick="selectMainSection('ds')"
+      class="px-4 py-2 bg-blue-600 text-white rounded">
       Drug Substance
     </button>
-    <button onclick="selectMainSection('dp')" class="px-4 py-2 bg-green-600 text-white rounded">
+
+    <button onclick="selectMainSection('dp')"
+      class="px-4 py-2 bg-green-600 text-white rounded">
       Drug Product
     </button>
   </div>
 
   <!-- SUB-SECTION SELECTOR -->
   <div id="subSectionSelector" class="flex space-x-4 mb-6 hidden">
-    <button onclick="loadSubSection('core')" class="px-4 py-2 bg-gray-700 text-white rounded">Core</button>
-    <button onclick="loadSubSection('stability')" class="px-4 py-2 bg-purple-600 text-white rounded">Stability</button>
-    <button id="sterilityBtn" onclick="loadSubSection('sterility')" class="px-4 py-2 bg-red-600 text-white rounded">
+    <button onclick="loadSubSection('core')"
+      class="px-4 py-2 bg-gray-700 text-white rounded">
+      Core
+    </button>
+
+    <button onclick="loadSubSection('stability')"
+      class="px-4 py-2 bg-purple-600 text-white rounded">
+      Stability
+    </button>
+
+    <button id="sterilityBtn"
+      onclick="loadSubSection('sterility')"
+      class="px-4 py-2 bg-red-600 text-white rounded">
       Sterility
     </button>
   </div>
@@ -46,7 +71,8 @@
       <option value="NA">Not Applicable</option>
     </select>
 
-    <button onclick="nextQuestion()" class="bg-black text-white px-4 py-2 rounded">
+    <button onclick="nextQuestion()"
+      class="bg-black text-white px-4 py-2 rounded">
       Next
     </button>
   </div>
@@ -55,32 +81,23 @@
   <div id="resultArea" class="mt-6 bg-white p-6 rounded shadow hidden">
     <h2 class="text-xl font-semibold mb-2">Result</h2>
     <pre id="resultText" class="text-red-600"></pre>
-
-    <button onclick="exportPDF()" class="mt-4 bg-emerald-600 text-white px-4 py-2 rounded">
-      Export RTR Report (PDF)
-    </button>
-  </div>
-
-  <!-- AI EXPLANATION -->
-  <div id="aiArea" class="mt-6 bg-white p-6 rounded shadow hidden">
-    <h2 class="text-xl font-semibold mb-2">AI Regulatory Explanation</h2>
-    <p class="text-sm text-gray-500 mb-2">Explanatory only. Does not influence decision.</p>
-    <pre id="aiText" class="whitespace-pre-wrap text-gray-800"></pre>
   </div>
 
   <!-- AUDIT LOG -->
   <div id="auditArea" class="mt-6 bg-white p-6 rounded shadow hidden">
     <h2 class="text-xl font-semibold mb-2">Audit Log (ALCOA+)</h2>
     <pre id="auditText" class="text-sm text-gray-700"></pre>
+
+    <button id="auditDownloadBtn"
+      onclick="downloadAuditLog()"
+      class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hidden">
+      Download Audit Log
+    </button>
   </div>
 
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-const OPENROUTER_API_KEY = "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"; 
-const AI_MODEL = "xiaomi/mimo-v2-flash:free";
-
 /* ================= STATE ================= */
 let rules = [];
 let index = 0;
@@ -88,9 +105,41 @@ let deficiencies = [];
 let auditLog = [];
 let mainSection = "";
 let subSection = "";
+let currentRole = "";
+
+/* ================= ROLE CONTROL ================= */
+function setRole(role) {
+  if (!role) return;
+  currentRole = role;
+
+  auditLog.push({
+    event: "ROLE_SELECTED",
+    role: role,
+    timestamp: new Date().toISOString()
+  });
+
+  applyRolePermissions();
+}
+
+function applyRolePermissions() {
+  const auditBtn = document.getElementById("auditDownloadBtn");
+
+  // Default: hide sensitive controls
+  auditBtn.classList.add("hidden");
+
+  if (currentRole === "ADMIN") {
+    auditBtn.classList.remove("hidden");
+  }
+}
 
 /* ================= SECTION LOGIC ================= */
 function selectMainSection(section) {
+
+  if (!currentRole) {
+    alert("Please select a role first.");
+    return;
+  }
+
   mainSection = section;
   subSection = "";
   auditLog = [];
@@ -99,13 +148,20 @@ function selectMainSection(section) {
   document.getElementById("questionArea").classList.add("hidden");
   document.getElementById("resultArea").classList.add("hidden");
   document.getElementById("auditArea").classList.add("hidden");
-  document.getElementById("aiArea").classList.add("hidden");
 
   const sterilityBtn = document.getElementById("sterilityBtn");
-  section === "ds" ? sterilityBtn.classList.add("hidden") : sterilityBtn.classList.remove("hidden");
+  section === "ds"
+    ? sterilityBtn.classList.add("hidden")
+    : sterilityBtn.classList.remove("hidden");
 }
 
 function loadSubSection(sub) {
+
+  if (!mainSection) {
+    alert("Please select Drug Substance or Drug Product first.");
+    return;
+  }
+
   subSection = sub;
   index = 0;
   deficiencies = [];
@@ -117,76 +173,101 @@ function loadSubSection(sub) {
   if (mainSection === "dp" && sub === "stability") file = "rules_dp_stability.json";
   if (mainSection === "dp" && sub === "sterility") file = "rules_dp_sterility.json";
 
-  fetch(file).then(r => r.json()).then(d => {
-    rules = d.rules;
-    document.getElementById("questionArea").classList.remove("hidden");
-    showQuestion();
+  auditLog.push({
+    event: "SUB_SECTION_SELECTED",
+    role: currentRole,
+    main_section: mainSection,
+    sub_section: sub,
+    timestamp: new Date().toISOString()
   });
+
+  fetch(file)
+    .then(res => res.json())
+    .then(data => {
+      rules = data.rules;
+      document.getElementById("questionArea").classList.remove("hidden");
+      showQuestion();
+    });
 }
 
 function showQuestion() {
-  if (index >= rules.length) return showResult();
+  if (index >= rules.length) {
+    showResult();
+    return;
+  }
+
   document.getElementById("sectionTitle").innerText =
-    (mainSection === "ds" ? "Drug Substance" : "Drug Product") + " – " + subSection.toUpperCase();
-  document.getElementById("questionText").innerText = rules[index].regulatory_expectation;
+    (mainSection === "ds" ? "Drug Substance" : "Drug Product") +
+    " – " + subSection.toUpperCase();
+
+  document.getElementById("questionText").innerText =
+    rules[index].regulatory_expectation;
 }
 
 function nextQuestion() {
   const ans = document.getElementById("answer").value;
+  if (!ans) return alert("Please select an answer");
+
   const rule = rules[index];
 
-  auditLog.push({ event: "QUESTION_ANSWERED", issue: rule.regulatory_expectation, response: ans, ts: new Date().toISOString() });
+  auditLog.push({
+    event: "QUESTION_ANSWERED",
+    role: currentRole,
+    issue: rule.regulatory_expectation,
+    response: ans,
+    timestamp: new Date().toISOString()
+  });
 
-  if (ans === "No" && rule.mandatory) deficiencies.push(rule);
-  index++;
+  if (ans === "No" && rule.mandatory) {
+    deficiencies.push(rule);
+  }
+
   document.getElementById("answer").value = "";
+  index++;
   showQuestion();
 }
 
-/* ================= RESULT + AI ================= */
-async function showResult() {
+function showResult() {
   document.getElementById("questionArea").classList.add("hidden");
   document.getElementById("resultArea").classList.remove("hidden");
   document.getElementById("auditArea").classList.remove("hidden");
 
-  const decision = deficiencies.length ? "REFUSE TO RECEIVE" : "ACCEPT FOR FILING";
-  document.getElementById("resultText").innerText = "FINAL DECISION: " + decision;
+  const decision =
+    deficiencies.length > 0
+      ? "REFUSE TO RECEIVE"
+      : "ACCEPT FOR FILING";
 
-  auditLog.push({ event: "ASSESSMENT_COMPLETED", decision, ts: new Date().toISOString() });
-  document.getElementById("auditText").innerText = JSON.stringify(auditLog, null, 2);
+  document.getElementById("resultText").innerText =
+    "FINAL DECISION: " + decision;
 
-  if (deficiencies.length) generateAIExplanation();
-}
-
-async function generateAIExplanation() {
-  const prompt = `Explain why the following CTD Module 3 deficiencies may trigger FDA RTR:\n` +
-    deficiencies.map(d => `- ${d.regulatory_expectation}`).join("\n");
-
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + OPENROUTER_API_KEY,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2
-    })
+  auditLog.push({
+    event: "ASSESSMENT_COMPLETED",
+    role: currentRole,
+    final_decision: decision,
+    timestamp: new Date().toISOString()
   });
 
-  const data = await res.json();
-  document.getElementById("aiText").innerText = data.choices[0].message.content;
-  document.getElementById("aiArea").classList.remove("hidden");
+  document.getElementById("auditText").innerText =
+    JSON.stringify(auditLog, null, 2);
 }
 
-/* ================= PDF EXPORT ================= */
-function exportPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.text("FDA RTR – Module 3 Report", 10, 10);
-  doc.text(document.getElementById("resultText").innerText, 10, 20);
-  doc.save("RTR_Report.pdf");
+function downloadAuditLog() {
+  if (currentRole !== "ADMIN") {
+    alert("Only Admin can download audit logs.");
+    return;
+  }
+
+  const blob = new Blob(
+    [JSON.stringify(auditLog, null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "rtr_module3_audit_log.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 
