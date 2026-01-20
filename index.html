@@ -3,8 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>FDA RTR – Module 3</title>
-
-  <!-- Tailwind CSS (FREE, COMMERCIAL USE OK) -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -16,27 +14,43 @@
     FDA RTR – CTD Module 3 Checker
   </h1>
 
-  <!-- SECTION SELECTOR -->
-  <div class="flex space-x-4 mb-6">
-    <button onclick="loadSection('ds')"
+  <!-- MAIN SECTION SELECTOR -->
+  <div class="flex space-x-4 mb-3">
+    <button onclick="selectMainSection('ds')"
       class="px-4 py-2 bg-blue-600 text-white rounded">
       Drug Substance
     </button>
 
-    <button onclick="loadSection('dp')"
+    <button onclick="selectMainSection('dp')"
       class="px-4 py-2 bg-green-600 text-white rounded">
       Drug Product
+    </button>
+  </div>
+
+  <!-- SUB-SECTION SELECTOR (APPEARS BELOW DS/DP) -->
+  <div id="subSectionSelector" class="flex space-x-4 mb-6 hidden">
+    <button onclick="loadSubSection('core')"
+      class="px-4 py-2 bg-gray-700 text-white rounded">
+      Core
+    </button>
+
+    <button onclick="loadSubSection('stability')"
+      class="px-4 py-2 bg-purple-600 text-white rounded">
+      Stability
+    </button>
+
+    <button onclick="loadSubSection('sterility')"
+      class="px-4 py-2 bg-red-600 text-white rounded">
+      Sterility
     </button>
   </div>
 
   <!-- QUESTION AREA -->
   <div id="questionArea" class="bg-white p-6 rounded shadow hidden">
     <h2 id="sectionTitle" class="text-xl font-semibold mb-4"></h2>
-
     <p id="questionText" class="mb-4 text-gray-700"></p>
 
-    <select id="answer"
-      class="border p-2 rounded w-full mb-4">
+    <select id="answer" class="border p-2 rounded w-full mb-4">
       <option value="">Select answer</option>
       <option value="Yes">Yes</option>
       <option value="No">No</option>
@@ -73,30 +87,47 @@ let rules = [];
 let index = 0;
 let deficiencies = [];
 let auditLog = [];
-let currentSection = "";
+let mainSection = "";
+let subSection = "";
 
-/* ---------- LOAD SECTION ---------- */
-function loadSection(section) {
-  currentSection = section;
-  auditLog = []; // reset audit log for new assessment
+/* ---------- SELECT MAIN SECTION ---------- */
+function selectMainSection(section) {
+  mainSection = section;
+  subSection = "";
+  auditLog = [];
+
+  document.getElementById("subSectionSelector").classList.remove("hidden");
+  document.getElementById("questionArea").classList.add("hidden");
+  document.getElementById("resultArea").classList.add("hidden");
+  document.getElementById("auditArea").classList.add("hidden");
+}
+
+/* ---------- LOAD SUB-SECTION ---------- */
+function loadSubSection(sub) {
+  subSection = sub;
+  index = 0;
+  deficiencies = [];
+
+  let file = "";
+
+  if (mainSection === "ds" && sub === "core") file = "rules_ds_core.json";
+  if (mainSection === "ds" && sub === "stability") file = "rules_ds_stability.json";
+  if (mainSection === "dp" && sub === "core") file = "rules_dp_core.json";
+  if (mainSection === "dp" && sub === "stability") file = "rules_dp_stability.json";
+  if (mainSection === "dp" && sub === "sterility") file = "rules_dp_sterility.json";
 
   auditLog.push({
-    event: "SECTION_SELECTED",
-    section: section === "ds" ? "Drug Substance" : "Drug Product",
+    event: "SUB_SECTION_SELECTED",
+    main_section: mainSection === "ds" ? "Drug Substance" : "Drug Product",
+    sub_section: sub,
     timestamp: new Date().toISOString()
   });
 
-  fetch(section === 'ds' ? 'rules_ds.json' : 'rules_dp.json')
+  fetch(file)
     .then(res => res.json())
     .then(data => {
       rules = data.rules;
-      index = 0;
-      deficiencies = [];
-
-      document.getElementById("resultArea").classList.add("hidden");
-      document.getElementById("auditArea").classList.add("hidden");
       document.getElementById("questionArea").classList.remove("hidden");
-
       showQuestion();
     });
 }
@@ -109,9 +140,9 @@ function showQuestion() {
   }
 
   const rule = rules[index];
-
   document.getElementById("sectionTitle").innerText =
-    currentSection === 'ds' ? "Drug Substance" : "Drug Product";
+    (mainSection === "ds" ? "Drug Substance" : "Drug Product") +
+    " – " + subSection.toUpperCase();
 
   document.getElementById("questionText").innerText =
     rule.regulatory_expectation;
@@ -127,7 +158,6 @@ function nextQuestion() {
 
   const rule = rules[index];
 
-  // AUDIT LOG ENTRY
   auditLog.push({
     event: "QUESTION_ANSWERED",
     section: rule.ctd_section,
@@ -156,25 +186,23 @@ function showResult() {
   document.getElementById("auditArea").classList.remove("hidden");
 
   let text = "";
-  let finalDecision = "";
+  let finalDecision = "ACCEPT FOR FILING";
 
-  if (deficiencies.length === 0) {
-    text = "No RTR-triggering deficiencies identified.\n\nFINAL DECISION: ACCEPT FOR FILING";
-    finalDecision = "ACCEPT FOR FILING";
-  } else {
+  if (deficiencies.length > 0) {
     deficiencies.forEach(d => {
       text +=
         "Section: " + d.section + "\n" +
         "Issue: " + d.issue + "\n" +
         "Severity: " + d.severity + "\n\n";
     });
-    text += "FINAL DECISION: REFUSE TO RECEIVE";
     finalDecision = "REFUSE TO RECEIVE";
+  } else {
+    text = "No RTR-triggering deficiencies identified.\n\n";
   }
 
+  text += "FINAL DECISION: " + finalDecision;
   document.getElementById("resultText").innerText = text;
 
-  // FINAL AUDIT ENTRY
   auditLog.push({
     event: "ASSESSMENT_COMPLETED",
     final_decision: finalDecision,
