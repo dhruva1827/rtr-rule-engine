@@ -55,39 +55,69 @@
     <pre id="resultText" class="text-red-600"></pre>
   </div>
 
+  <!-- AUDIT LOG -->
+  <div id="auditArea" class="mt-6 bg-white p-6 rounded shadow hidden">
+    <h2 class="text-xl font-semibold mb-2">Audit Log (ALCOA+)</h2>
+    <pre id="auditText" class="text-sm text-gray-700"></pre>
+
+    <button onclick="downloadAuditLog()"
+      class="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
+      Download Audit Log
+    </button>
+  </div>
+
 </div>
 
 <script>
 let rules = [];
 let index = 0;
 let deficiencies = [];
+let auditLog = [];
+let currentSection = "";
 
+/* ---------- LOAD SECTION ---------- */
 function loadSection(section) {
+  currentSection = section;
+  auditLog = []; // reset audit log for new assessment
+
+  auditLog.push({
+    event: "SECTION_SELECTED",
+    section: section === "ds" ? "Drug Substance" : "Drug Product",
+    timestamp: new Date().toISOString()
+  });
+
   fetch(section === 'ds' ? 'rules_ds.json' : 'rules_dp.json')
     .then(res => res.json())
     .then(data => {
       rules = data.rules;
       index = 0;
       deficiencies = [];
+
       document.getElementById("resultArea").classList.add("hidden");
+      document.getElementById("auditArea").classList.add("hidden");
       document.getElementById("questionArea").classList.remove("hidden");
-      showQuestion(section);
+
+      showQuestion();
     });
 }
 
-function showQuestion(section) {
+/* ---------- SHOW QUESTION ---------- */
+function showQuestion() {
   if (index >= rules.length) {
     showResult();
     return;
   }
 
   const rule = rules[index];
+
   document.getElementById("sectionTitle").innerText =
-    section === 'ds' ? "Drug Substance" : "Drug Product";
+    currentSection === 'ds' ? "Drug Substance" : "Drug Product";
+
   document.getElementById("questionText").innerText =
     rule.regulatory_expectation;
 }
 
+/* ---------- NEXT QUESTION ---------- */
 function nextQuestion() {
   const ans = document.getElementById("answer").value;
   if (!ans) {
@@ -96,6 +126,15 @@ function nextQuestion() {
   }
 
   const rule = rules[index];
+
+  // AUDIT LOG ENTRY
+  auditLog.push({
+    event: "QUESTION_ANSWERED",
+    section: rule.ctd_section,
+    requirement: rule.regulatory_expectation,
+    response: ans,
+    timestamp: new Date().toISOString()
+  });
 
   if (ans === "No" && rule.mandatory) {
     deficiencies.push({
@@ -110,13 +149,18 @@ function nextQuestion() {
   showQuestion();
 }
 
+/* ---------- SHOW RESULT ---------- */
 function showResult() {
   document.getElementById("questionArea").classList.add("hidden");
   document.getElementById("resultArea").classList.remove("hidden");
+  document.getElementById("auditArea").classList.remove("hidden");
 
   let text = "";
+  let finalDecision = "";
+
   if (deficiencies.length === 0) {
-    text = "No RTR-triggering deficiencies identified.";
+    text = "No RTR-triggering deficiencies identified.\n\nFINAL DECISION: ACCEPT FOR FILING";
+    finalDecision = "ACCEPT FOR FILING";
   } else {
     deficiencies.forEach(d => {
       text +=
@@ -125,9 +169,35 @@ function showResult() {
         "Severity: " + d.severity + "\n\n";
     });
     text += "FINAL DECISION: REFUSE TO RECEIVE";
+    finalDecision = "REFUSE TO RECEIVE";
   }
 
   document.getElementById("resultText").innerText = text;
+
+  // FINAL AUDIT ENTRY
+  auditLog.push({
+    event: "ASSESSMENT_COMPLETED",
+    final_decision: finalDecision,
+    timestamp: new Date().toISOString()
+  });
+
+  document.getElementById("auditText").innerText =
+    JSON.stringify(auditLog, null, 2);
+}
+
+/* ---------- DOWNLOAD AUDIT LOG ---------- */
+function downloadAuditLog() {
+  const blob = new Blob(
+    [JSON.stringify(auditLog, null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "rtr_module3_audit_log.json";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 
