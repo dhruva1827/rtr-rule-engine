@@ -13,23 +13,14 @@
   <div class="bg-white p-6 rounded shadow w-full max-w-md">
     <h2 class="text-xl font-bold mb-4">Authorized Access Only</h2>
 
-    <input id="accessId"
-      class="border p-2 w-full mb-3"
-      placeholder="Access ID">
+    <input id="accessId" class="border p-2 w-full mb-3" placeholder="Access ID">
+    <input id="accessKey" type="password" class="border p-2 w-full mb-4" placeholder="Access Key">
 
-    <input id="accessKey"
-      type="password"
-      class="border p-2 w-full mb-4"
-      placeholder="Access Key">
-
-    <button onclick="validateAccess()"
-      class="bg-blue-600 text-white px-4 py-2 rounded w-full">
+    <button onclick="validateAccess()" class="bg-blue-600 text-white px-4 py-2 rounded w-full">
       Enter System
     </button>
 
-    <p id="accessError" class="text-red-600 mt-3 hidden">
-      Invalid credentials.
-    </p>
+    <p id="accessError" class="text-red-600 mt-3 hidden">Invalid credentials.</p>
   </div>
 </div>
 
@@ -42,28 +33,21 @@
 
   <!-- MAIN SECTION SELECTOR -->
   <div class="flex space-x-4 mb-3">
-    <button onclick="selectMainSection('ds')"
-      class="px-4 py-2 bg-blue-600 text-white rounded">
+    <button onclick="selectMainSection('ds')" class="px-4 py-2 bg-blue-600 text-white rounded">
       Drug Substance
     </button>
-
-    <button onclick="selectMainSection('dp')"
-      class="px-4 py-2 bg-green-600 text-white rounded">
+    <button onclick="selectMainSection('dp')" class="px-4 py-2 bg-green-600 text-white rounded">
       Drug Product
     </button>
   </div>
 
   <!-- SUB-SECTION SELECTOR -->
   <div id="subSectionSelector" class="flex space-x-4 mb-6 hidden">
-    <button onclick="loadSubSection('core')"
-      class="px-4 py-2 bg-gray-700 text-white rounded">Core</button>
-
-    <button onclick="loadSubSection('stability')"
-      class="px-4 py-2 bg-purple-600 text-white rounded">Stability</button>
-
-    <button id="sterilityBtn"
-      onclick="loadSubSection('sterility')"
-      class="px-4 py-2 bg-red-600 text-white rounded">Sterility</button>
+    <button onclick="loadSubSection('core')" class="px-4 py-2 bg-gray-700 text-white rounded">Core</button>
+    <button onclick="loadSubSection('stability')" class="px-4 py-2 bg-purple-600 text-white rounded">Stability</button>
+    <button id="sterilityBtn" onclick="loadSubSection('sterility')" class="px-4 py-2 bg-red-600 text-white rounded">
+      Sterility
+    </button>
   </div>
 
   <!-- QUESTION AREA -->
@@ -73,13 +57,12 @@
 
     <select id="answer" class="border p-2 rounded w-full mb-4">
       <option value="">Select answer</option>
-      <option value="Yes">Yes</option>
-      <option value="No">No</option>
-      <option value="NA">Not Applicable</option>
+      <option>Yes</option>
+      <option>No</option>
+      <option>NA</option>
     </select>
 
-    <button onclick="nextQuestion()"
-      class="bg-black text-white px-4 py-2 rounded">
+    <button onclick="nextQuestion()" class="bg-black text-white px-4 py-2 rounded">
       Next
     </button>
   </div>
@@ -90,29 +73,37 @@
     <pre id="resultText" class="text-red-600"></pre>
   </div>
 
+  <!-- AI EXPLANATION -->
+  <div id="aiArea" class="mt-6 bg-white p-6 rounded shadow hidden">
+    <h2 class="text-xl font-semibold mb-2">AI Regulatory Explanation</h2>
+    <p class="text-sm text-gray-500 mb-2">
+      Explanatory only. Does not influence regulatory decision.
+    </p>
+    <pre id="aiText" class="whitespace-pre-wrap text-gray-800"></pre>
+  </div>
+
   <!-- AUDIT LOG -->
   <div id="auditArea" class="mt-6 bg-white p-6 rounded shadow hidden">
     <h2 class="text-xl font-semibold mb-2">Audit Log (ALCOA+)</h2>
     <pre id="auditText" class="text-sm text-gray-700"></pre>
-
-    <button id="auditDownloadBtn"
-      onclick="downloadAuditLog()"
-      class="mt-4 bg-blue-600 text-white px-4 py-2 rounded hidden">
-      Download Audit Log
-    </button>
   </div>
 
 </div>
 
 <script>
-/* ========== AUTHORIZED USERS (EDIT THIS) ========== */
+/* ================= CONFIG ================= */
+// 👉 PASTE YOUR EXISTING OPENROUTER KEY HERE
+const OPENROUTER_API_KEY = "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";
+const AI_MODEL = "xiaomi/mimo-v2-flash:free";
+
+/* ================= AUTH USERS ================= */
 const AUTHORIZED_USERS = {
   "qa_user_01": { key: "QA123", role: "QA" },
   "ra_user_26": { key: "Ra@2026", role: "RA" },
-  "RA-MANG":   { key: "Admin@2026", role: "RA-MANG" }
+  "RA-MANG":   { key: "Admin@2026", role: "ADMIN" }
 };
 
-/* ========== STATE ========== */
+/* ================= STATE ================= */
 let currentRole = "";
 let rules = [];
 let index = 0;
@@ -121,49 +112,122 @@ let auditLog = [];
 let mainSection = "";
 let subSection = "";
 
-/* ========== ACCESS CONTROL ========== */
+/* ================= ACCESS ================= */
 function validateAccess() {
-  const id = document.getElementById("accessId").value;
-  const key = document.getElementById("accessKey").value;
+  const id = accessId.value;
+  const key = accessKey.value;
 
   if (!AUTHORIZED_USERS[id] || AUTHORIZED_USERS[id].key !== key) {
-    document.getElementById("accessError").classList.remove("hidden");
+    accessError.classList.remove("hidden");
     return;
   }
 
   currentRole = AUTHORIZED_USERS[id].role;
+  auditLog.push({ event: "ACCESS_GRANTED", user: id, role: currentRole, ts: new Date().toISOString() });
 
-  auditLog.push({
-    event: "ACCESS_GRANTED",
-    user: id,
-    role: currentRole,
-    timestamp: new Date().toISOString()
-  });
-
-  document.getElementById("accessGate").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
-
-  if (currentRole === "ADMIN") {
-    document.getElementById("auditDownloadBtn").classList.remove("hidden");
-  }
+  accessGate.classList.add("hidden");
+  app.classList.remove("hidden");
 }
 
-/* ========== EXISTING LOGIC CONTINUES (UNCHANGED) ========== */
-
+/* ================= FLOW ================= */
 function selectMainSection(section) {
   mainSection = section;
   subSection = "";
 
-  document.getElementById("subSectionSelector").classList.remove("hidden");
-  document.getElementById("questionArea").classList.add("hidden");
-  document.getElementById("resultArea").classList.add("hidden");
-  document.getElementById("auditArea").classList.add("hidden");
+  subSectionSelector.classList.remove("hidden");
+  questionArea.classList.add("hidden");
+  resultArea.classList.add("hidden");
+  auditArea.classList.add("hidden");
+  aiArea.classList.add("hidden");
 
-  const sterilityBtn = document.getElementById("sterilityBtn");
-  section === "ds" ? sterilityBtn.classList.add("hidden") : sterilityBtn.classList.remove("hidden");
+  section === "ds"
+    ? sterilityBtn.classList.add("hidden")
+    : sterilityBtn.classList.remove("hidden");
 }
 
-/* (loadSubSection, showQuestion, nextQuestion, showResult, downloadAuditLog remain as before) */
+function loadSubSection(sub) {
+  subSection = sub;
+  index = 0;
+  deficiencies = [];
+
+  let file = "";
+  if (mainSection === "ds" && sub === "core") file = "rules_ds_core.json";
+  if (mainSection === "ds" && sub === "stability") file = "rules_ds_stability.json";
+  if (mainSection === "dp" && sub === "core") file = "rules_dp_core.json";
+  if (mainSection === "dp" && sub === "stability") file = "rules_dp_stability.json";
+  if (mainSection === "dp" && sub === "sterility") file = "rules_dp_sterility.json";
+
+  fetch(file)
+    .then(r => r.json())
+    .then(d => {
+      rules = d.rules;
+      questionArea.classList.remove("hidden");
+      showQuestion();
+    });
+}
+
+function showQuestion() {
+  if (index >= rules.length) return showResult();
+
+  sectionTitle.innerText =
+    (mainSection === "ds" ? "Drug Substance" : "Drug Product") +
+    " – " + subSection.toUpperCase();
+
+  questionText.innerText = rules[index].regulatory_expectation;
+}
+
+function nextQuestion() {
+  const ans = answer.value;
+  if (!ans) return alert("Select answer");
+
+  const rule = rules[index];
+
+  if (ans === "No" && rule.mandatory) {
+    deficiencies.push(rule);
+  }
+
+  index++;
+  answer.value = "";
+  showQuestion();
+}
+
+async function showResult() {
+  questionArea.classList.add("hidden");
+  resultArea.classList.remove("hidden");
+  auditArea.classList.remove("hidden");
+
+  const decision = deficiencies.length ? "REFUSE TO RECEIVE" : "ACCEPT FOR FILING";
+  resultText.innerText = "FINAL DECISION: " + decision;
+
+  auditText.innerText = JSON.stringify(auditLog, null, 2);
+
+  if ((currentRole === "RA" || currentRole === "ADMIN") && deficiencies.length) {
+    await generateAIExplanation();
+  }
+}
+
+/* ================= AI ================= */
+async function generateAIExplanation() {
+  const prompt = `Explain why the following CTD Module 3 deficiencies may trigger FDA RTR:\n` +
+    deficiencies.map(d => "- " + d.regulatory_expectation).join("\n");
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + OPENROUTER_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2
+    })
+  });
+
+  const data = await res.json();
+  aiText.innerText = data.choices[0].message.content;
+  aiArea.classList.remove("hidden");
+}
 </script>
 
 </body>
